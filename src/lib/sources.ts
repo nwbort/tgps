@@ -1,8 +1,5 @@
 import type { ProviderSource } from './types';
-import {
-	parseAmpol, parseAtlas, parseBp, parseCaltex,
-	parseFreedomFuels, parseMobil, parseUnited, parseViva,
-} from './parsers';
+import { parseStandardJson } from './parsers';
 
 function rawUrl(repo: string, file: string): string {
 	return `https://raw.githubusercontent.com/nwbort/${repo}/main/${file}`;
@@ -13,57 +10,57 @@ export const PROVIDERS: ProviderSource[] = [
 		id: 'bp',
 		name: 'BP',
 		colour: '#009B4D',
-		rawUrl: rawUrl('tgp-bp', 'bp_pricing_history.csv'),
-		parse: parseBp,
+		rawUrl: rawUrl('tgp-bp', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 	{
 		id: 'ampol',
 		name: 'Ampol',
 		colour: '#E2003A',
-		rawUrl: rawUrl('tgp-ampol', 'ampol_tgp_data.csv'),
-		parse: parseAmpol,
+		rawUrl: rawUrl('tgp-ampol', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 	{
 		id: 'viva',
 		name: 'Viva Energy',
 		colour: '#FF6B00',
-		rawUrl: rawUrl('tgp-viva', 'tgp-viva-history.csv'),
-		parse: parseViva,
+		rawUrl: rawUrl('tgp-viva', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 	{
 		id: 'united',
 		name: 'United',
 		colour: '#0047AB',
-		rawUrl: rawUrl('tgp-united', 'tgp-united-history.csv'),
-		parse: parseUnited,
+		rawUrl: rawUrl('tgp-united', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 	{
 		id: 'atlas',
 		name: 'Atlas',
 		colour: '#8B5CF6',
-		rawUrl: rawUrl('tgp-atlas', 'tgp-atlas-history.csv'),
-		parse: parseAtlas,
+		rawUrl: rawUrl('tgp-atlas', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 	{
 		id: 'mobil',
 		name: 'Mobil',
 		colour: '#E31837',
-		rawUrl: rawUrl('tgp-mobil', 'tgp-mobil-history.csv'),
-		parse: parseMobil,
+		rawUrl: rawUrl('tgp-mobil', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 	{
 		id: 'freedomfuels',
 		name: 'Freedom Fuels',
 		colour: '#007DC3',
-		rawUrl: rawUrl('tgp-freedomfuels', 'tgp-freedomfuels-history.csv'),
-		parse: parseFreedomFuels,
+		rawUrl: rawUrl('tgp-freedomfuels', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 	{
 		id: 'caltex',
 		name: 'Caltex',
 		colour: '#F59E0B',
-		rawUrl: rawUrl('tgp-caltex', 'tgp-caltex-history.csv'),
-		parse: parseCaltex,
+		rawUrl: rawUrl('tgp-caltex', 'tgp_data.json'),
+		parse: parseStandardJson,
 	},
 ];
 

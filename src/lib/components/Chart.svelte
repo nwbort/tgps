@@ -13,14 +13,15 @@
 	let container: HTMLDivElement;
 	let chart: ECharts | null = null;
 
-	onMount(async () => {
-		const echarts = await import('echarts');
-		chart = echarts.init(container, 'dark', { renderer: 'canvas' });
-		chart.setOption(option);
-
-		const observer = new ResizeObserver(() => chart?.resize());
-		observer.observe(container);
-		return () => observer.disconnect();
+	onMount(() => {
+		let observer: ResizeObserver;
+		import('echarts').then((echarts) => {
+			chart = echarts.init(container, 'dark', { renderer: 'canvas' });
+			chart.setOption(option);
+			observer = new ResizeObserver(() => chart?.resize());
+			observer.observe(container);
+		});
+		return () => observer?.disconnect();
 	});
 
 	$effect(() => {
