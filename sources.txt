@@ -1,0 +1,8 @@
+https://github.com/nwbort/tgp-bp/blob/main/bp_pricing_history.csv
+https://github.com/nwbort/tgp-ampol/blob/main/ampol_tgp_data.csv
+https://github.com/nwbort/tgp-viva/blob/main/tgp-viva-history.csv
+https://github.com/nwbort/tgp-united/blob/main/tgp-united-history.csv
+https://github.com/nwbort/tgp-atlas/blob/main/tgp-atlas-history.csv
+https://github.com/nwbort/tgp-mobil/blob/main/tgp-mobil-history.csv
+https://github.com/nwbort/tgp-freedomfuels/blob/main/tgp-freedomfuels-history.csv
+https://github.com/nwbort/tgp-caltex/blob/main/tgp-caltex-history.csv
