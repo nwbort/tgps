@@ -5,10 +5,11 @@
 	import { PROVIDERS } from '$lib/sources';
 	import PriceHistoryChart from '$lib/components/PriceHistoryChart.svelte';
 	import SpreadChart from '$lib/components/SpreadChart.svelte';
+	import E10DiscountChart from '$lib/components/E10DiscountChart.svelte';
 	import LatestPricesTable from '$lib/components/LatestPricesTable.svelte';
 	import FilterPanel from '$lib/components/FilterPanel.svelte';
 
-	type Tab = 'history' | 'compare' | 'spread' | 'latest';
+	type Tab = 'history' | 'compare' | 'spread' | 'e10' | 'latest';
 
 	let allRecords: TgpRecord[] = $state([]);
 	let loadErrors: Array<{ provider: string; message: string }> = $state([]);
@@ -20,7 +21,9 @@
 	let dateFrom = $state('');
 	let dateTo = $state('');
 	let activeTab: Tab = $state('history');
-	let historyGroupBy: 'provider' | 'fuelType' = $state('provider');
+
+	// Single fuel type picker used by history + spread tabs
+	let activeFuel: FuelType | null = $state(null);
 
 	let availableFuels = $derived([...new Set(allRecords.map((r) => r.fuelType))].sort() as FuelType[]);
 	let availableStates = $derived([...new Set(allRecords.map((r) => r.state))].sort() as StateCode[]);
@@ -32,6 +35,10 @@
 		if (selectedStates.length === 0 && availableStates.length > 0) {
 			selectedStates = [...availableStates];
 		}
+		// Default activeFuel to the first available fuel
+		if (activeFuel === null && availableFuels.length > 0) {
+			activeFuel = availableFuels[0];
+		}
 	});
 
 	let filtered = $derived(
@@ -42,6 +49,11 @@
 			dateFrom: dateFrom || undefined,
 			dateTo: dateTo || undefined,
 		}),
+	);
+
+	// Records for the single-fuel tabs, filtered to activeFuel
+	let filteredSingleFuel = $derived(
+		activeFuel ? filtered.filter((r) => r.fuelType === activeFuel) : [],
 	);
 
 	onMount(async () => {
@@ -60,11 +72,12 @@
 		{ id: 'history', label: 'Price history' },
 		{ id: 'compare', label: 'By fuel type' },
 		{ id: 'spread', label: 'Provider spread' },
+		{ id: 'e10', label: 'E10 discount' },
 		{ id: 'latest', label: 'Latest prices' },
 	];
 
 	let spreadBaseProvider = $derived(() => {
-		const ids = [...new Set(filtered.map((r) => r.provider))];
+		const ids = [...new Set(filteredSingleFuel.map((r) => r.provider))];
 		return ids[0] ? (PROVIDERS.find((p) => p.id === ids[0])?.name ?? ids[0]) : '';
 	});
 </script>
@@ -128,23 +141,20 @@
 					</div>
 
 					{#if activeTab === 'history'}
-						<div class="mb-3 flex items-center gap-3">
-							<span class="text-xs text-slate-400">Group by:</span>
-							<div class="flex rounded overflow-hidden border border-slate-700 text-xs">
+						<div class="mb-3 flex flex-wrap items-center gap-2">
+							{#each availableFuels as fuel}
 								<button
-									onclick={() => (historyGroupBy = 'provider')}
-									class="px-3 py-1.5 transition-colors {historyGroupBy === 'provider' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-200'}"
-								>Provider</button>
-								<button
-									onclick={() => (historyGroupBy = 'fuelType')}
-									class="px-3 py-1.5 transition-colors {historyGroupBy === 'fuelType' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-200'}"
-								>Fuel type</button>
-							</div>
+									onclick={() => (activeFuel = fuel)}
+									class="px-2.5 py-1 rounded text-xs font-medium transition-all border border-slate-600 {activeFuel === fuel ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-200'}"
+								>
+									{FUEL_LABEL_MAP[fuel] ?? fuel}
+								</button>
+							{/each}
 						</div>
-						{#if filtered.length === 0}
+						{#if filteredSingleFuel.length === 0}
 							{@render emptyState()}
 						{:else}
-							<PriceHistoryChart records={filtered} groupBy={historyGroupBy} />
+							<PriceHistoryChart records={filteredSingleFuel} groupBy="provider" />
 						{/if}
 
 					{:else if activeTab === 'compare'}
@@ -163,13 +173,33 @@
 						</div>
 
 					{:else if activeTab === 'spread'}
-						{#if filtered.length === 0}
+						<div class="mb-3 flex flex-wrap items-center gap-2">
+							{#each availableFuels as fuel}
+								<button
+									onclick={() => (activeFuel = fuel)}
+									class="px-2.5 py-1 rounded text-xs font-medium transition-all border border-slate-600 {activeFuel === fuel ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-200'}"
+								>
+									{FUEL_LABEL_MAP[fuel] ?? fuel}
+								</button>
+							{/each}
+						</div>
+						{#if filteredSingleFuel.length === 0}
 							{@render emptyState()}
 						{:else}
 							<p class="text-xs text-slate-400 mb-3">
 								Spread relative to {spreadBaseProvider()}
 							</p>
-							<SpreadChart records={filtered} />
+							<SpreadChart records={filteredSingleFuel} />
+						{/if}
+
+					{:else if activeTab === 'e10'}
+						<p class="text-xs text-slate-400 mb-3">
+							E10 price minus ULP 91 price per terminal — negative values mean E10 is cheaper than ULP 91.
+						</p>
+						{#if filtered.length === 0}
+							{@render emptyState()}
+						{:else}
+							<E10DiscountChart records={filtered} />
 						{/if}
 
 					{:else if activeTab === 'latest'}

@@ -11,13 +11,12 @@
 	let { option, height = '400px', class: className = '' }: Props = $props();
 
 	let container: HTMLDivElement;
-	let chart: ECharts | null = null;
+	let chart: ECharts | null = $state(null);
 
 	onMount(() => {
 		let observer: ResizeObserver;
 		import('echarts').then((echarts) => {
 			chart = echarts.init(container, 'dark', { renderer: 'canvas' });
-			chart.setOption(option);
 			observer = new ResizeObserver(() => chart?.resize());
 			observer.observe(container);
 		});
@@ -25,7 +24,7 @@
 	});
 
 	$effect(() => {
-		chart?.setOption(option, { notMerge: false, replaceMerge: ['series'] });
+		if (chart) chart.setOption(option, { notMerge: false, replaceMerge: ['series'] });
 	});
 
 	onDestroy(() => chart?.dispose());
