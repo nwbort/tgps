@@ -42,21 +42,12 @@
 			};
 		});
 
+		// Clamp avg data for the two area fills
+		const posData = avg.map(([d, v]) => [d, Math.max(0, v)]);
+		const negData = avg.map(([d, v]) => [d, Math.min(0, v)]);
+
 		return {
 			backgroundColor: 'transparent',
-			// Colour the avg line and area based on value: green below 0, red above 0
-			visualMap: [
-				{
-					show: false,
-					type: 'piecewise' as const,
-					pieces: [
-						{ gt: 0, color: '#ef4444' },
-						{ lte: 0, color: '#22c55e' },
-					],
-					dimension: 1,
-					seriesIndex: 0,
-				},
-			],
 			tooltip: {
 				trigger: 'axis',
 				formatter: (params: unknown) => {
@@ -109,15 +100,27 @@
 				},
 			],
 			series: [
-				// Average line at index 0 — visualMap colours line + area based on value
+				// Red fill above x-axis (positive values only)
 				{
-					name: '_avg',
+					name: '_pos_fill',
 					type: 'line' as const,
-					data: avg,
+					data: posData,
 					symbol: 'none',
-					lineStyle: { width: 2.5 },
-					areaStyle: { opacity: 0.2 },
-					z: 10,
+					lineStyle: { width: 0, color: 'transparent' },
+					areaStyle: { color: 'rgba(239, 68, 68, 0.2)' },
+					silent: true,
+					z: 2,
+				},
+				// Green fill below x-axis (negative values only)
+				{
+					name: '_neg_fill',
+					type: 'line' as const,
+					data: negData,
+					symbol: 'none',
+					lineStyle: { width: 0, color: 'transparent' },
+					areaStyle: { color: 'rgba(34, 197, 94, 0.2)' },
+					silent: true,
+					z: 2,
 				},
 				// Terminal lines (grey, subtle)
 				...termSeries,
@@ -134,6 +137,16 @@
 						label: { show: false },
 					},
 					z: 3,
+				},
+				// Bold average line on top
+				{
+					name: '_avg',
+					type: 'line' as const,
+					data: avg,
+					symbol: 'none',
+					lineStyle: { width: 2.5, color: '#60a5fa' },
+					itemStyle: { color: '#60a5fa' },
+					z: 10,
 				},
 			],
 		};
