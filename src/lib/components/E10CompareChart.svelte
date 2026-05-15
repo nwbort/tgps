@@ -12,6 +12,34 @@
 
 	let option = $derived(buildOption(series));
 
+	/** Insert null between consecutive points that are more than 1 day apart, so ECharts breaks the line. */
+	function withGapNulls(data: Array<[string, number]>): Array<[string, number] | null> {
+		const result: Array<[string, number] | null> = [];
+		for (let i = 0; i < data.length; i++) {
+			result.push(data[i]);
+			if (i < data.length - 1) {
+				const dayDiff =
+					(new Date(data[i + 1][0]).getTime() - new Date(data[i][0]).getTime()) / 86400000;
+				if (dayDiff > 1.5) result.push(null);
+			}
+		}
+		return result;
+	}
+
+	/** Return data for a dotted connector series that spans only the gap segments. */
+	function gapSegments(data: Array<[string, number]>): Array<[string, number] | null> {
+		const result: Array<[string, number] | null> = [];
+		for (let i = 0; i < data.length - 1; i++) {
+			const dayDiff =
+				(new Date(data[i + 1][0]).getTime() - new Date(data[i][0]).getTime()) / 86400000;
+			if (dayDiff > 1.5) {
+				if (result.length > 0) result.push(null);
+				result.push(data[i], data[i + 1]);
+			}
+		}
+		return result;
+	}
+
 	function buildOption(seriesMap: Map<string, Array<[string, number]>>): EChartsOption {
 		if (seriesMap.size === 0) {
 			return {
@@ -25,21 +53,46 @@
 			};
 		}
 
-		const chartSeries = Array.from(seriesMap.entries()).map(([provider, points]) => ({
-			name: PROVIDER_MAP[provider]?.name ?? provider,
-			type: 'line' as const,
-			data: points,
-			symbol: 'none',
-			lineStyle: { width: 2 },
-			color: PROVIDER_MAP[provider]?.colour ?? '#94A3B8',
-		}));
+		const providerNames: string[] = [];
+		const allSeries: EChartsOption['series'] = [];
+
+		for (const [provider, points] of seriesMap) {
+			const colour = PROVIDER_MAP[provider]?.colour ?? '#94A3B8';
+			const name = PROVIDER_MAP[provider]?.name ?? provider;
+			providerNames.push(name);
+
+			// Main series — breaks at gaps via null values
+			allSeries.push({
+				name,
+				type: 'line' as const,
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				data: withGapNulls(points) as any,
+				symbol: 'none',
+				lineStyle: { width: 2 },
+				color: colour,
+			});
+
+			// Dotted connector across each gap
+			const gaps = gapSegments(points);
+			if (gaps.length > 0) {
+				allSeries.push({
+					name: `_gap_${provider}`,
+					type: 'line' as const,
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					data: gaps as any,
+					symbol: 'none',
+					lineStyle: { color: colour, width: 1.5, type: 'dotted' as const },
+					silent: true,
+				});
+			}
+		}
 
 		return {
 			backgroundColor: 'transparent',
 			legend: {
 				top: 0,
 				textStyle: { color: '#CBD5E1' },
-				data: chartSeries.map((s) => s.name),
+				data: providerNames,
 			},
 			tooltip: {
 				trigger: 'axis',
@@ -48,7 +101,7 @@
 					if (!items.length) return '';
 					const date = items[0].value[0];
 					const lines = items
-						.filter((p) => p.value[1] != null)
+						.filter((p) => !p.seriesName.startsWith('_') && p.value[1] != null)
 						.sort((a, b) => a.value[1] - b.value[1])
 						.map((p) => {
 							const v = p.value[1];
@@ -100,7 +153,7 @@
 						label: { show: false },
 					},
 				},
-				...chartSeries,
+				...allSeries,
 			],
 		};
 	}

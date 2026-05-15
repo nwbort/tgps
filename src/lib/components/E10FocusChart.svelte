@@ -12,6 +12,34 @@
 
 	let option = $derived(buildOption(terminalSeries, avgSeries));
 
+	/** Insert null between consecutive points that are more than 1 day apart. */
+	function withGapNulls(data: Array<[string, number]>): Array<[string, number] | null> {
+		const result: Array<[string, number] | null> = [];
+		for (let i = 0; i < data.length; i++) {
+			result.push(data[i]);
+			if (i < data.length - 1) {
+				const dayDiff =
+					(new Date(data[i + 1][0]).getTime() - new Date(data[i][0]).getTime()) / 86400000;
+				if (dayDiff > 1.5) result.push(null);
+			}
+		}
+		return result;
+	}
+
+	/** Return data for a dotted connector series spanning only gap segments. */
+	function gapSegments(data: Array<[string, number]>): Array<[string, number] | null> {
+		const result: Array<[string, number] | null> = [];
+		for (let i = 0; i < data.length - 1; i++) {
+			const dayDiff =
+				(new Date(data[i + 1][0]).getTime() - new Date(data[i][0]).getTime()) / 86400000;
+			if (dayDiff > 1.5) {
+				if (result.length > 0) result.push(null);
+				result.push(data[i], data[i + 1]);
+			}
+		}
+		return result;
+	}
+
 	function buildOption(
 		terminals: Map<string, Array<[string, number]>>,
 		avg: Array<[string, number]>,
@@ -28,23 +56,43 @@
 			};
 		}
 
-		const termSeries = Array.from(terminals.entries()).map(([key, points]) => {
+		const avgWithNulls = withGapNulls(avg);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const posData = avgWithNulls.map((pt) => (pt === null ? null : [pt[0], Math.max(0, pt[1])])) as any;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const negData = avgWithNulls.map((pt) => (pt === null ? null : [pt[0], Math.min(0, pt[1])])) as any;
+
+		const avgGaps = gapSegments(avg);
+
+		// Terminal series — main lines + dotted gap connectors
+		const termAllSeries: EChartsOption['series'] = [];
+		for (const [key, points] of terminals) {
 			const location = key.split('|')[1] ?? key;
-			return {
+			termAllSeries.push({
 				name: location,
 				type: 'line' as const,
-				data: points,
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				data: withGapNulls(points) as any,
 				symbol: 'none',
 				lineStyle: { color: '#334155', width: 1.5 },
 				itemStyle: { color: '#334155' },
 				silent: true,
 				z: 1,
-			};
-		});
-
-		// Clamp avg data for the two area fills
-		const posData = avg.map(([d, v]) => [d, Math.max(0, v)]);
-		const negData = avg.map(([d, v]) => [d, Math.min(0, v)]);
+			});
+			const gaps = gapSegments(points);
+			if (gaps.length > 0) {
+				termAllSeries.push({
+					name: `_gap_${location}`,
+					type: 'line' as const,
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					data: gaps as any,
+					symbol: 'none',
+					lineStyle: { color: '#334155', width: 1, type: 'dotted' as const },
+					silent: true,
+					z: 1,
+				});
+			}
+		}
 
 		return {
 			backgroundColor: 'transparent',
@@ -58,8 +106,10 @@
 					const v = avgItem.value[1];
 					const sign = v > 0 ? '+' : '';
 					const col = v >= 0 ? '#f87171' : '#4ade80';
-					const termItems = items.filter((p) => p.seriesName !== '_avg' && p.seriesName !== '_zero');
-					const termVals = termItems.map((p) => p.value[1]).filter((x) => x != null);
+					const termItems = items.filter(
+						(p) => !p.seriesName.startsWith('_') && p.value[1] != null,
+					);
+					const termVals = termItems.map((p) => p.value[1]);
 					let html = `<div style="font-size:12px"><b>${date}</b><br>Avg: <b style="color:${col}">${sign}${v.toFixed(1)}¢/L</b>`;
 					if (termVals.length > 0) {
 						const sorted = [...termVals].sort((a, b) => a - b);
@@ -100,7 +150,7 @@
 				},
 			],
 			series: [
-				// Red fill above x-axis (positive values only)
+				// Red fill above x-axis
 				{
 					name: '_pos_fill',
 					type: 'line' as const,
@@ -111,7 +161,7 @@
 					silent: true,
 					z: 2,
 				},
-				// Green fill below x-axis (negative values only)
+				// Green fill below x-axis
 				{
 					name: '_neg_fill',
 					type: 'line' as const,
@@ -122,8 +172,8 @@
 					silent: true,
 					z: 2,
 				},
-				// Terminal lines (grey, subtle)
-				...termSeries,
+				// Terminal lines + their gap connectors
+				...termAllSeries,
 				// Zero reference line
 				{
 					name: '_zero',
@@ -138,16 +188,32 @@
 					},
 					z: 3,
 				},
-				// Bold average line on top
+				// Bold average line
 				{
 					name: '_avg',
 					type: 'line' as const,
-					data: avg,
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					data: avgWithNulls as any,
 					symbol: 'none',
 					lineStyle: { width: 2.5, color: '#60a5fa' },
 					itemStyle: { color: '#60a5fa' },
 					z: 10,
 				},
+				// Dotted connector for avg gaps
+				...(avgGaps.length > 0
+					? [
+							{
+								name: '_avg_gap',
+								type: 'line' as const,
+								// eslint-disable-next-line @typescript-eslint/no-explicit-any
+								data: avgGaps as any,
+								symbol: 'none',
+								lineStyle: { color: '#60a5fa', width: 1.5, type: 'dotted' as const },
+								silent: true,
+								z: 10,
+							},
+						]
+					: []),
 			],
 		};
 	}
